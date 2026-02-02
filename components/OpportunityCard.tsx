@@ -58,6 +58,14 @@ export default function OpportunityCard({
   onSimulate
 }: OpportunityCardProps) {
 
+  // Calculate spreads
+  const spreadValue = Math.abs(exchanges.short.bid - exchanges.long.ask);
+  const spreadPct = (spreadValue / exchanges.long.ask) * 100;
+
+  // Calculate specific direction PnLs for display
+  const shortLongPnL = exchanges.short.bid - exchanges.long.ask; // Short A - Long B
+  const longShortPnL = exchanges.long.bid - exchanges.short.ask; // Short B - Long A
+
   // Holographic Effect State
   const cardRef = useRef<HTMLDivElement>(null);
   const [rotateX, setRotateX] = useState(0);
