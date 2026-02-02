@@ -59,8 +59,8 @@ export default function OpportunityCard({
 }: OpportunityCardProps) {
 
   // Calculate spreads
-  const spreadValue = Math.abs(exchanges.short.bid - exchanges.long.ask); // Fix calc
-  const spreadPct = (spreadValue / exchanges.long.ask) * 100;
+  const calculatedSpread = Math.abs(exchanges.short.bid - exchanges.long.ask); // Renamed to force update
+  const spreadPct = (calculatedSpread / exchanges.long.ask) * 100;
 
   // Calculate specific direction PnLs for display
   const shortLongPnL = exchanges.short.bid - exchanges.long.ask; // Short A - Long B
@@ -229,7 +229,7 @@ export default function OpportunityCard({
             <span className="text-gray-300 text-xs truncate max-w-[200px]">
               Bid {exchanges.short.name} &gt; Ask {exchanges.long.name}
             </span>
-            <span className="ml-auto text-green-400 font-mono font-bold text-lg">${spreadValue.toFixed(2)}</span>
+            <span className="ml-auto text-green-400 font-mono font-bold text-lg">${calculatedSpread.toFixed(2)}</span>
           </div>
         )}
 
@@ -262,7 +262,7 @@ export default function OpportunityCard({
           {/* Stats Rows */}
           <div className="pt-2 flex justify-between items-center">
             <span className="text-gray-500 text-xs">Spread Moyen</span>
-            <span className="text-lg font-bold text-gray-300 font-mono">${spreadValue.toFixed(4)}</span>
+            <span className="text-lg font-bold text-gray-300 font-mono">${calculatedSpread.toFixed(4)}</span>
           </div>
 
           <div className="flex justify-between items-center">
