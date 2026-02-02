@@ -48,30 +48,25 @@ export default function ArbitragePricesPage() {
   // Fetch live prices
   const { prices } = useCryptoPrices();
 
-  // Calculate opportunities based on live prices
-  const opportunities = useMemo(() => {
+  // 1. Calculate ALL raw opportunities based on live prices (UNFILTERED)
+  const rawOpportunities = useMemo(() => {
     const opps = [];
     let idCounter = 1;
+    // Iterate over ALL known tokens, not just enabled ones
+    const allTokens = Object.keys(tokens);
 
-    for (const [token, enabled] of Object.entries(tokens)) {
-      if (!enabled) continue;
-
+    for (const token of allTokens) {
       const tokenPrices = prices[token];
-      // We need both exchanges to compare
       if (!tokenPrices || !tokenPrices.Hyperliquid || !tokenPrices.Paradex) continue;
 
       const hl = tokenPrices.Hyperliquid;
       const px = tokenPrices.Paradex;
 
-      // Strategy 1: Long Hyperliquid, Short Paradex
-      // Buy at HL Ask, Sell at Paradex Bid
+      // Strategy 1: Long HL, Short Px
       const strategy1Profit = px.bid - hl.ask;
-
-      // Strategy 2: Long Paradex, Short Hyperliquid
-      // Buy at Paradex Ask, Sell at HL Bid
+      // Strategy 2: Long Px, Short HL
       const strategy2Profit = hl.bid - px.ask;
 
-      // Determine best strategy
       let bestStrategy = '';
       let profit = 0;
       let isDirect = false;
@@ -95,60 +90,50 @@ export default function ArbitragePricesPage() {
       }
 
       opps.push({
-        id: idCounter++,
+        id: idCounter++, // Note: ID might be unstable if list changes order, but token keys are better
         token,
         profit: profit,
         isDirect,
         tradeSize: 0.2,
-        exchanges: {
-          long: longEx,
-          short: shortEx
-        },
+        exchanges: { long: longEx, short: shortEx },
         strategy: bestStrategy,
         strategyProfit: Math.abs(profit),
-        // Helper for simulation
         raw: { direction, longPrice: longEx.price, shortPrice: shortEx.price }
       });
     }
-    return opps;
-  }, [prices, tokens]);
+    return opps.sort((a, b) => b.profit - a.profit);
+  }, [prices]); // Removed 'tokens' dependency, depends only on prices
 
-  // Paper Trading Hook
-  const {
-    activeTrades,
-    tradeHistory,
-    openTrade,
-    closeTrade,
-    totalRealizedPnL,
-    totalUnrealizedPnL,
-    isAutoPilot,
-    setIsAutoPilot
-  } = usePaperTrading(prices, opportunities);
+  // 2. Throttle the PRICE updates
+  const [throttledOpportunities, setThrottledOpportunities] = useState<any[]>([]);
+  const latestRawOppsRef = useRef(rawOpportunities);
 
-  // Store latest opportunities ref to avoid re-triggering interval
-  const latestOppsRef = useRef(opportunities);
-  useEffect(() => { latestOppsRef.current = opportunities; }, [opportunities]);
+  useEffect(() => { latestRawOppsRef.current = rawOpportunities; }, [rawOpportunities]);
 
-  // Actual throttling effect
   useEffect(() => {
     const val = parseInt(refreshRate);
 
-    // If Real-time (NaN), we need to update whenever opportunities change
+    const update = () => {
+      setThrottledOpportunities(latestRawOppsRef.current);
+    };
+
     if (isNaN(val)) {
-      setDisplayedOpportunities(opportunities);
+      setThrottledOpportunities(rawOpportunities); // Real-time
       return;
     }
 
-    // Attempt to align with the interval
-    const timer = setInterval(() => {
-      setDisplayedOpportunities(latestOppsRef.current);
-    }, val);
-
-    // Initial set on interval change
-    setDisplayedOpportunities(latestOppsRef.current);
-
+    // Initial update
+    update();
+    const timer = setInterval(update, val);
     return () => clearInterval(timer);
-  }, [refreshRate, isNaN(parseInt(refreshRate)) ? opportunities : null]);
+  }, [refreshRate, isNaN(parseInt(refreshRate)) ? rawOpportunities : null]);
+
+  // 3. Apply Filters INSTANTLY on the throttled data
+  // This ensures checking a box updates UI immediately without waiting for next price tick
+  const displayedOpportunities = useMemo(() => {
+    return throttledOpportunities.filter(opp => tokens[opp.token as keyof typeof tokens]);
+  }, [throttledOpportunities, tokens]);
+
 
 
   return (

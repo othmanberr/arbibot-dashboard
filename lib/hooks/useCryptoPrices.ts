@@ -50,6 +50,61 @@ export function useCryptoPrices() {
         }));
     }, []);
 
+    // 🚀 FAST BOOT: Fetch REST Snapshots immediately
+    useEffect(() => {
+        const fetchSnapshots = async () => {
+            try {
+                // 1. Hyperliquid Snapshot
+                fetch('https://api.hyperliquid.xyz/info', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: "metaAndAssetCtxs" })
+                }).then(res => res.json()).then(data => {
+                    const universe = data[0].universe;
+                    const ctxs = data[1];
+                    universe.forEach((u: any, i: number) => {
+                        const coin = u.name;
+                        if (HYPERLIQUID_TOKENS.includes(coin)) {
+                            const mid = parseFloat(ctxs[i].midPx);
+                            // Synthesize Bid/Ask from Mid (approx for instant display)
+                            // or use 'ctxs[i].markPx' if available. 
+                            // Only midPx is reliable in this endpoint, but it's enough for "Instant Load"
+                            updatePrice(coin, 'Hyperliquid', {
+                                bid: mid * 0.9995, // Est spread 0.05%
+                                ask: mid * 1.0005,
+                                last: mid
+                            });
+                        }
+                    });
+                }).catch(e => console.error("HL Snapshot Failed", e));
+
+                // 2. Paradex Snapshot
+                fetch('https://api.prod.paradex.trade/v1/markets/summary?market=ALL')
+                    .then(res => res.json()).then(data => {
+                        data.results.forEach((item: any) => {
+                            const market = item.symbol;
+                            const token = Object.keys(PARADEX_MAP).find(key => PARADEX_MAP[key] === market);
+                            if (token) {
+                                const px = parseFloat(item.last_traded_price || item.last_price || "0");
+                                const bid = parseFloat(item.best_bid || px);
+                                const ask = parseFloat(item.best_ask || px);
+                                updatePrice(token, 'Paradex', {
+                                    bid: bid,
+                                    ask: ask,
+                                    last: px
+                                });
+                            }
+                        });
+                    }).catch(e => console.error("PX Snapshot Failed", e));
+
+            } catch (e) {
+                console.error("Fast Boot Error", e);
+            }
+        };
+
+        fetchSnapshots();
+    }, [updatePrice]);
+
     // Hyperliquid WebSocket
     useEffect(() => {
         let ws: WebSocket | null = null;
