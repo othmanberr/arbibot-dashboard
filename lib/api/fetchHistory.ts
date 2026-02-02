@@ -110,7 +110,15 @@ async function fetchParadexHistory(token: string, start: number, end: number) {
         // We iterate and bucket by minute.
 
         trades.forEach((t: any) => {
-            const time = t.created_at;
+            // Handle timestamp safely (could be int ms, int s, or ISO string)
+            let time = t.created_at;
+            if (typeof time === 'string') {
+                time = new Date(time).getTime();
+            } else if (typeof time === 'number' && time < 10000000000) {
+                // Assuming seconds if small (e.g. 17xxxxxxxx)
+                time = time * 1000;
+            }
+
             const price = parseFloat(t.price);
 
             // Round to minute
