@@ -59,7 +59,7 @@ export default function OpportunityCard({
 }: OpportunityCardProps) {
 
   // Calculate spreads
-  const spreadValue = Math.abs(exchanges.short.bid - exchanges.long.ask);
+  const spreadValue = Math.abs(exchanges.short.bid - exchanges.long.ask); // Fix calc
   const spreadPct = (spreadValue / exchanges.long.ask) * 100;
 
   // Calculate specific direction PnLs for display
