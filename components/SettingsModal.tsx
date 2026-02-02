@@ -13,14 +13,11 @@ interface SettingsModalProps {
 
 export default function SettingsModal({ isOpen, onClose, initialThresholds, onSave }: SettingsModalProps) {
     const [thresholds, setThresholds] = useState<Record<string, number>>({
-        ASTER: 0.01,
         BNB: 2,
         BTC: 40,
         ETH: 2,
         HYPE: 0.1,
-        SOL: 0.5,
-        AVAX: 0.2,
-        PAXG: 1.0
+        SOL: 0.5
     });
 
     // Load initials if provided

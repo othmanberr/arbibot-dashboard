@@ -1,0 +1,23 @@
+# Ignore dependencies (Vercel installs them)
+node_modules
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Ignore build output (Vercel builds it)
+.next
+out
+dist
+build
+
+# Ignore Rust Engine (Not needed for Frontend Dashboard)
+rust-engine
+bot
+venv
+__pycache__
+
+# System files
+.DS_Store
+.env
+.env.local
+.git

@@ -28,3 +28,9 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+# Rust Engine (Separate Repo recommended)
+rust-engine
+bot
+venv
+

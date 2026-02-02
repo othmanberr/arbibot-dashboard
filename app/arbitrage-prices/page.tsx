@@ -1,9 +1,8 @@
 'use client';
 
-'use client';
-
 import { useState, useMemo, useRef, useEffect } from 'react';
 import OpportunityCard from '@/components/OpportunityCard';
+import TickerTape from '@/components/TickerTape'; // Import
 import { RefreshCw, Settings } from 'lucide-react';
 import { useCryptoPrices } from '@/lib/hooks/useCryptoPrices';
 import { usePaperTrading } from '@/lib/hooks/usePaperTrading';
@@ -18,41 +17,17 @@ export default function ArbitragePricesPage() {
     BNB: true,
     HYPE: true,
     SOL: true,
-    AVAX: true,
-    PAXG: true,
   });
-  // ...
-  // (Inside return JSX)
-  <button
-    onClick={() => setIsSettingsOpen(true)}
-    className="flex items-center gap-2 px-4 py-2 bg-[#1a2e26] border border-[#2a4e40] text-gray-300 rounded-lg text-sm hover:bg-[#2a4e40] transition-colors"
-  >
-    <Settings className="w-4 h-4" />
-    <span>Settings</span>
-  </button>
-          </div >
-        </div >
-      </div >
-
-    <SettingsModal
-      isOpen={isSettingsOpen}
-      onClose={() => setIsSettingsOpen(false)}
-      onSave={(newThresholds) => console.log('Saved:', newThresholds)}
-    />
-
-  {/* Opportunities Grid -- Rest of JSX... */ }
 
   const [refreshRate, setRefreshRate] = useState('5000'); // Default 5 sec
-  const [displayedOpportunities, setDisplayedOpportunities] = useState<any[]>([]);
 
-  // Fetch live prices
+  // Live Prices
   const { prices } = useCryptoPrices();
 
-  // 1. Calculate ALL raw opportunities based on live prices (UNFILTERED)
+  // 1. Calculate Raw Opportunities
   const rawOpportunities = useMemo(() => {
     const opps = [];
     let idCounter = 1;
-    // Iterate over ALL known tokens, not just enabled ones
     const allTokens = Object.keys(tokens);
 
     for (const token of allTokens) {
@@ -69,6 +44,7 @@ export default function ArbitragePricesPage() {
 
       let bestStrategy = '';
       let profit = 0;
+      let spreadPct = 0;
       let isDirect = false;
       let longEx, shortEx;
       let direction: 'LongHL_ShortPx' | 'LongPx_ShortHL';
@@ -79,6 +55,7 @@ export default function ArbitragePricesPage() {
         longEx = { name: 'Hyperliquid', price: hl.ask, bid: hl.bid, ask: hl.ask };
         shortEx = { name: 'Paradex', price: px.bid, bid: px.bid, ask: px.ask };
         isDirect = strategy1Profit > 0;
+        spreadPct = (Math.abs(px.bid - hl.ask) / hl.ask) * 100;
         direction = 'LongHL_ShortPx';
       } else {
         profit = strategy2Profit;
@@ -86,6 +63,7 @@ export default function ArbitragePricesPage() {
         longEx = { name: 'Paradex', price: px.ask, bid: px.bid, ask: px.ask };
         shortEx = { name: 'Hyperliquid', price: hl.bid, bid: hl.bid, ask: hl.ask };
         isDirect = strategy2Profit > 0;
+        spreadPct = (Math.abs(hl.bid - px.ask) / px.ask) * 100;
         direction = 'LongPx_ShortHL';
       }
 
@@ -95,6 +73,7 @@ export default function ArbitragePricesPage() {
         profit: profit,
         isDirect,
         tradeSize: 0.2,
+        spread: spreadPct, // Required for AutoPilot
         exchanges: { long: longEx, short: shortEx },
         strategy: bestStrategy,
         strategyProfit: Math.abs(profit),
@@ -102,9 +81,21 @@ export default function ArbitragePricesPage() {
       });
     }
     return opps.sort((a, b) => b.profit - a.profit);
-  }, [prices]); // Removed 'tokens' dependency, depends only on prices
+  }, [prices]);
 
-  // 2. Throttle the PRICE updates
+  // Paper Trading (Moved after rawOpportunities)
+  const {
+    activeTrades,
+    tradeHistory,
+    openTrade,
+    closeTrade,
+    totalRealizedPnL,
+    totalUnrealizedPnL,
+    isAutoPilot,
+    setIsAutoPilot
+  } = usePaperTrading(prices, rawOpportunities);
+
+  // 2. Throttle Updates
   const [throttledOpportunities, setThrottledOpportunities] = useState<any[]>([]);
   const latestRawOppsRef = useRef(rawOpportunities);
 
@@ -112,47 +103,44 @@ export default function ArbitragePricesPage() {
 
   useEffect(() => {
     const val = parseInt(refreshRate);
-
     const update = () => {
       setThrottledOpportunities(latestRawOppsRef.current);
     };
 
     if (isNaN(val)) {
-      setThrottledOpportunities(rawOpportunities); // Real-time
+      setThrottledOpportunities(rawOpportunities);
       return;
     }
 
-    // Initial update
     update();
     const timer = setInterval(update, val);
     return () => clearInterval(timer);
   }, [refreshRate, isNaN(parseInt(refreshRate)) ? rawOpportunities : null]);
 
-  // 3. Apply Filters INSTANTLY on the throttled data
-  // This ensures checking a box updates UI immediately without waiting for next price tick
+  // 3. Filter Instantly
   const displayedOpportunities = useMemo(() => {
     return throttledOpportunities.filter(opp => tokens[opp.token as keyof typeof tokens]);
   }, [throttledOpportunities, tokens]);
 
 
-
   return (
-    <div className="p-8 pb-32"> {/* Added padding bottom for panel */}
-      {/* Header Panel */}
+    <div className="p-8 pb-32 pt-16">
+      <TickerTape />
+
+      {/* Header */}
       <div className="bg-[#0c1210] border border-[#1a2e26] rounded-xl p-6 mb-8">
         <div className="flex items-center gap-3 mb-6">
           <RefreshCw className="w-5 h-5 text-gray-400 animate-spin-slow" />
           <h1 className="text-2xl font-bold text-white">Best Arbitrage Opportunities</h1>
         </div>
 
-        {/* Filters Controls */}
+        {/* Filters */}
         <div className="flex flex-wrap items-center gap-4">
           <span className="text-sm text-gray-500 font-medium">Tokens:</span>
           <div className="flex flex-wrap gap-4 mr-auto">
             {Object.entries(tokens).map(([token, checked]) => (
               <label key={token} className="flex items-center gap-2 cursor-pointer group">
-                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${checked ? 'bg-green-600 border-green-600' : 'border-gray-600 group-hover:border-gray-500'
-                  }`}>
+                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${checked ? 'bg-green-600 border-green-600' : 'border-gray-600 group-hover:border-gray-500'}`}>
                   {checked && <div className="w-2 h-2 bg-white rounded-[1px]" />}
                 </div>
                 <input
@@ -184,7 +172,9 @@ export default function ArbitragePricesPage() {
               <span>Goofy</span>
             </button>
 
-            <button className="flex items-center gap-2 px-4 py-2 bg-[#1a2e26] border border-[#2a4e40] text-gray-300 rounded-lg text-sm hover:bg-[#2a4e40] transition-colors">
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-[#1a2e26] border border-[#2a4e40] text-gray-300 rounded-lg text-sm hover:bg-[#2a4e40] transition-colors">
               <Settings className="w-4 h-4" />
               <span>Settings</span>
             </button>
@@ -192,8 +182,8 @@ export default function ArbitragePricesPage() {
         </div>
       </div>
 
-      {/* Opportunities Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      {/* Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {displayedOpportunities.map(opportunity => (
           <OpportunityCard
             key={opportunity.id}
@@ -209,7 +199,7 @@ export default function ArbitragePricesPage() {
         ))}
       </div>
 
-      {/* No opportunities message */}
+      {/* No Data */}
       {displayedOpportunities.length === 0 && (
         <div className="text-center py-20 bg-[#0c1210] border border-[#1a2e26] rounded-xl">
           <p className="text-gray-500">
@@ -220,7 +210,7 @@ export default function ArbitragePricesPage() {
         </div>
       )}
 
-      {/* SIMULATOR PANEL */}
+      {/* Simulator Panel */}
       <PaperTradingPanel
         activeTrades={activeTrades}
         tradeHistory={tradeHistory}
@@ -231,51 +221,12 @@ export default function ArbitragePricesPage() {
         setIsAutoPilot={setIsAutoPilot}
       />
 
-
-      {/* Table View (Added for consistency) */}
-      {displayedOpportunities.length > 0 && (
-        <div className="mt-8 bg-[#0c1210] rounded-xl border border-[#1a2e26] overflow-hidden">
-          <div className="p-6 border-b border-[#1a2e26]">
-            <h2 className="text-xl font-bold text-white">Arbitrage Opportunities List</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-[#1a2e26] bg-black/20">
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase">Pair</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase">Long</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase">Short</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase">Strategy</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase">Spread</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#1a2e26]">
-                {displayedOpportunities.map((opp) => (
-                  <tr key={opp.id} className="hover:bg-[#1a2e26]/30 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="font-bold text-white">{opp.token}/USD</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-green-400">{opp.exchanges.long.name}</span>
-                      <span className="text-xs text-gray-500 block">${opp.exchanges.long.price.toFixed(2)}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-red-400">{opp.exchanges.short.name}</span>
-                      <span className="text-xs text-gray-500 block">${opp.exchanges.short.price.toFixed(2)}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-xs text-gray-300 bg-gray-800 px-2 py-1 rounded">{opp.strategy}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-green-500 font-bold font-mono">+${opp.profit.toFixed(4)}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onSave={(newThresholds) => console.log('Saved:', newThresholds)}
+      />
     </div>
   );
 }

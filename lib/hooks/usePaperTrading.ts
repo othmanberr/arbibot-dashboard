@@ -79,7 +79,18 @@ export function usePaperTrading(currentPrices: TokenPrices, opportunities: any[]
     // AUTO-PILOT LOGIC
     const [isAutoPilot, setIsAutoPilot] = useState(false);
 
-    // Auto-Pilot Effect
+    // Load AutoPilot state from storage on mount
+    useEffect(() => {
+        const saved = localStorage.getItem('arbibot_autopilot');
+        if (saved) setIsAutoPilot(JSON.parse(saved));
+    }, []);
+
+    // Save AutoPilot state when changed
+    useEffect(() => {
+        localStorage.setItem('arbibot_autopilot', JSON.stringify(isAutoPilot));
+    }, [isAutoPilot]);
+
+    // Auto-Pilot Execution Logic
     useEffect(() => {
         if (!isAutoPilot) return;
 
@@ -92,17 +103,18 @@ export function usePaperTrading(currentPrices: TokenPrices, opportunities: any[]
             const pxMid = (prices.Paradex.bid + prices.Paradex.ask) / 2;
             const spread = Math.abs((pxMid - hlMid) / hlMid) * 100;
 
-            if (spread < 0.1) {
+            if (spread < 0.01) {
                 closeTrade(trade.id);
             }
         });
 
-        // 2. Check for Entries (Spread > 0.5%)
+        // 2. Check for Entries (Spread > 0.08%)
         if (opportunities) {
             opportunities.forEach(opp => {
                 if (activeTrades.find(t => t.token === opp.token)) return; // Already open
 
-                if (Math.abs(opp.spread) > 0.5) {
+                // Entry threshold > Exit threshold (0.08% vs 0.01%)
+                if (Math.abs(opp.spread) > 0.08) {
                     const direction = opp.spread > 0 ? 'LongHL_ShortPx' : 'LongPx_ShortHL';
                     // Look up prices
                     const p = currentPrices[opp.token];

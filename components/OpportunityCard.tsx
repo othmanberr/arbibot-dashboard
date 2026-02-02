@@ -58,19 +58,60 @@ export default function OpportunityCard({
   onSimulate
 }: OpportunityCardProps) {
 
-  // Calculate spreads
-  const spreadValue = Math.abs(exchanges.short.bid - exchanges.long.ask);
-  const spreadPct = (spreadValue / exchanges.long.ask) * 100;
+  // Holographic Effect State
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [rotateX, setRotateX] = useState(0);
+  const [rotateY, setRotateY] = useState(0);
+  const [glarePosition, setGlarePosition] = useState({ x: 50, y: 50 });
 
-  // Calculate specific direction PnLs for display
-  const shortLongPnL = exchanges.short.bid - exchanges.long.ask; // Short A - Long B
-  const longShortPnL = exchanges.long.bid - exchanges.short.ask; // Short B - Long A
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
+    const rotateXValue = ((y - centerY) / centerY) * -10; // Max 10 deg tilt
+    const rotateYValue = ((x - centerX) / centerX) * 10;
+
+    setRotateX(rotateXValue);
+    setRotateY(rotateYValue);
+    setGlarePosition({ x: (x / rect.width) * 100, y: (y / rect.height) * 100 });
+  };
+
+  const handleMouseLeave = () => {
+    setRotateX(0);
+    setRotateY(0);
+    setGlarePosition({ x: 50, y: 50 }); // Center glare
+  };
 
   return (
-    <div className={`rounded-xl border p-6 transition-all shadow-lg relative overflow-hidden group ${isDirect
-      ? 'bg-[#0c1210] border-green-500/30 shadow-green-900/10'
-      : 'bg-[#0f0f0f] border-gray-800'
-      }`}>
+    <div
+      ref={cardRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      style={{
+        transform: `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1, 1, 1)`,
+        transition: 'transform 0.1s ease-out'
+      }}
+      className={`rounded-2xl border p-6 shadow-2xl relative overflow-hidden group hover:z-50 ${isDirect
+        ? 'bg-gradient-to-br from-gray-900 via-[#050a08] to-gray-900 border-green-500/50 shadow-green-900/20'
+        : 'bg-[#0a0a0a] border-gray-800'
+        }`}>
+
+      {/* 3D Glare Overlay */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-40 transition-opacity duration-300 z-20 mix-blend-overlay"
+        style={{
+          background: `radial-gradient(circle at ${glarePosition.x}% ${glarePosition.y}%, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 80%)`
+        }}
+      />
+
+      {/* Live Scanning Effect */}
+      {isDirect && (
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-green-400 to-transparent animate-scan opacity-70" />
+      )}
 
       {/* Background glow effect for direct arb */}
       {isDirect && (
@@ -78,7 +119,7 @@ export default function OpportunityCard({
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 relative z-10">
+      <div className="flex items-center justify-between mb-6 relative z-10" style={{ transform: 'translateZ(20px)' }}>
         <div className="flex items-center gap-3">
           <span className="flex items-center justify-center w-8 h-8 rounded bg-[#1a2e26] text-gray-400 text-sm font-mono border border-[#2a4e40]">
             #{id}
@@ -86,9 +127,9 @@ export default function OpportunityCard({
           <h3 className="text-3xl font-bold text-gray-100">{token}</h3>
 
           {isDirect && (
-            <span className="flex items-center gap-1.5 px-3 py-1 bg-green-900/30 text-green-400 text-[10px] font-bold tracking-wider uppercase rounded-sm border border-green-800/50">
-              <Activity className="w-3 h-3" />
-              Arbitrage Live
+            <span className="flex items-center gap-1.5 px-3 py-1 bg-green-500/20 text-green-400 text-[10px] font-bold tracking-wider uppercase rounded-full border border-green-500/30">
+              <span className="text-lg">🔥</span>
+              ARBITRAGE DIRECT
             </span>
           )}
         </div>
@@ -97,7 +138,7 @@ export default function OpportunityCard({
         {onSimulate && (
           <button
             onClick={onSimulate}
-            className="flex items-center gap-2 px-3 py-1.5 bg-purple-600/20 text-purple-300 border border-purple-500/30 rounded-lg hover:bg-purple-600/40 transition-colors text-xs font-bold uppercase tracking-wide"
+            className="flex items-center gap-2 px-3 py-1.5 bg-purple-600/20 text-purple-300 border border-purple-500/30 rounded-lg hover:bg-purple-600/40 transition-colors text-xs font-bold uppercase tracking-wide cursor-pointer active:scale-95"
           >
             <Rocket className="w-3 h-3" />
             Simuler
@@ -106,7 +147,7 @@ export default function OpportunityCard({
       </div>
 
       {/* Trade Size Input */}
-      <div className="mb-6 relative z-10">
+      <div className="mb-6 relative z-10" style={{ transform: 'translateZ(10px)' }}>
         <div className="flex justify-between items-center mb-2">
           <label className="text-xs text-gray-500 font-semibold uppercase tracking-wider pl-1">
             Trade size ({token}):
@@ -118,49 +159,49 @@ export default function OpportunityCard({
       </div>
 
       {/* Comparison Grid */}
-      <div className="grid grid-cols-2 gap-4 mb-6 relative z-10">
-        {/* Long Card */}
-        <div className="bg-[#0f1a16] border border-[#1e362d] rounded-lg p-4 relative">
+      <div className="grid grid-cols-2 gap-4 mb-6 relative z-10" style={{ transform: 'translateZ(30px)' }}>
+        {/* Long Card - Clearly GREEN */}
+        <div className="bg-green-500/10 border border-green-500/40 rounded-xl p-4 relative shadow-[0_0_20px_rgba(34,197,94,0.1)] backdrop-blur-sm transition-colors hover:bg-green-500/15">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-gray-400 font-medium">{exchanges.long.name}</span>
-            <span className="flex items-center gap-1 text-[10px] font-bold text-green-500 bg-green-900/20 px-2 py-0.5 rounded border border-green-900/30">
+            <span className="text-gray-300 font-bold tracking-wide">{exchanges.long.name}</span>
+            <span className="flex items-center gap-1 text-[10px] font-black text-white bg-green-600 px-2 py-1 rounded shadow-lg shadow-green-600/20">
               <TrendingUp className="w-3 h-3" /> LONG
             </span>
           </div>
           <div className="mb-3">
             <FlashingPrice price={exchanges.long.price} />
           </div>
-          <div className="space-y-1.5 pt-3 border-t border-[#1e362d]">
+          <div className="space-y-1.5 pt-3 border-t border-green-500/20">
             <div className="flex justify-between items-center text-xs">
-              <span className="text-gray-500">Bid:</span>
-              <span className="text-gray-400 font-mono">${exchanges.long.bid.toFixed(2)}</span>
+              <span className="text-green-300/70">Bid:</span>
+              <span className="text-green-100 font-mono">${exchanges.long.bid.toFixed(2)}</span>
             </div>
             <div className="flex justify-between items-center text-xs">
-              <span className="text-gray-500">Ask:</span>
-              <span className="text-gray-300 font-mono font-bold">${exchanges.long.ask.toFixed(2)}</span>
+              <span className="text-green-300/70">Ask:</span>
+              <span className="text-white font-mono font-bold text-shadow-sm">${exchanges.long.ask.toFixed(2)}</span>
             </div>
           </div>
         </div>
 
-        {/* Short Card */}
-        <div className="bg-[#1a0f0f] border border-[#361e1e] rounded-lg p-4 relative">
+        {/* Short Card - Clearly RED */}
+        <div className="bg-red-500/10 border border-red-500/40 rounded-xl p-4 relative shadow-[0_0_20px_rgba(239,68,68,0.1)] backdrop-blur-sm transition-colors hover:bg-red-500/15">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-gray-400 font-medium">{exchanges.short.name}</span>
-            <span className="flex items-center gap-1 text-[10px] font-bold text-red-500 bg-red-900/20 px-2 py-0.5 rounded border border-red-900/30">
+            <span className="text-gray-300 font-bold tracking-wide">{exchanges.short.name}</span>
+            <span className="flex items-center gap-1 text-[10px] font-black text-white bg-red-600 px-2 py-1 rounded shadow-lg shadow-red-600/20">
               <TrendingDown className="w-3 h-3" /> SHORT
             </span>
           </div>
           <div className="mb-3">
             <FlashingPrice price={exchanges.short.price} />
           </div>
-          <div className="space-y-1.5 pt-3 border-t border-[#361e1e]">
+          <div className="space-y-1.5 pt-3 border-t border-red-500/20">
             <div className="flex justify-between items-center text-xs">
-              <span className="text-gray-500">Bid:</span>
-              <span className="text-gray-300 font-mono font-bold">${exchanges.short.bid.toFixed(2)}</span>
+              <span className="text-red-300/70">Bid:</span>
+              <span className="text-white font-mono font-bold text-shadow-sm">${exchanges.short.bid.toFixed(2)}</span>
             </div>
             <div className="flex justify-between items-center text-xs">
-              <span className="text-gray-500">Ask:</span>
-              <span className="text-gray-400 font-mono">${exchanges.short.ask.toFixed(2)}</span>
+              <span className="text-red-300/70">Ask:</span>
+              <span className="text-red-100 font-mono">${exchanges.short.ask.toFixed(2)}</span>
             </div>
           </div>
         </div>
